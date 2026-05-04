@@ -48,3 +48,26 @@ jobs:
 
       - name: docker build image 
         run: docker build -t myapp:latest .   
+
+  compile:
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      matrix:
+        node-version: [18,20]
+
+    steps:
+      - name: checkout code
+        uses: actions/checkout@
+        with:
+          fetch-depth: 0
+
+      - name: node setup${{matrix.node-version}}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{matrix.node-version}}
+
+      - name: backend compilation
+        run: |
+          cd backend
+          find . -name "*.js" -exec node --check {} +    

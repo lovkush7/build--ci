@@ -1,0 +1,82 @@
+name: cicd pipeline
+
+on: 
+    push:
+        branches: ["main",  " develop", "staging"]
+        
+    pull_request:
+        branches: ["main", "develop"]     
+
+    workflow_dispatch:
+        inputs:
+            environments:
+                description: "deploy to environments"
+                required: true
+                default: staging
+                type: choice
+                options:
+                    - staging
+                    - production
+
+concurrency:
+   group: ${{github.workflow}}-${{github.ref}}
+   cancel-in-progress: true
+
+env:
+    NODE-VERSION: "20.x"
+    POSTGRES_VERSION: "16"
+    DOCKER_REGISTERY: ghcr.io
+   
+    
+jobs:
+    code-quality:
+      name: "CODE QUALITY"
+      runs-on: ubuntu-latest
+      steps:
+        - name: checkout code
+          uses: actions/checkout@v4
+          with: 
+            fetch-depth: 0
+
+        - name: setup pnpm
+          uses: pnpm/action-setup@v4
+          with:
+            version: 10
+            
+        - name: setup node
+          uses: actions/setup-node@v4
+          with: 
+            node-version: ${{env.NODE-VERSION}}
+            cache: "pnpm"
+            cache-dependency-path: |
+              frontend/package.json
+              backend/package.json
+              
+        - name: installing the client dependicies
+          working-directory: ./frontend
+          run: pnpm install --frozen-lockfile
+          
+
+        - name: installing the server dependicies
+          working-directory: ./backend
+          run: pnpm install --frozen-lockfile
+
+        - name: lint frontend
+          working-directory: ./frontend
+          run: |
+            pnpm run lint --  --max-warnings=0
+            pnpm run format:check
+
+        - name: run backend lint
+          working-directory: ./backend
+          run: |
+            pnpm run lint --  --max-warnings=0
+            pnpm run  fromat: check    
+
+        - name: typescript type check -frontend
+          working-directory: ./frontend
+          run: pnpm run type-check     
+            
+        - name: typescript type check -backend
+          working-directory: ./backend
+          run: pnpm run type-check    
