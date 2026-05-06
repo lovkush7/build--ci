@@ -80,3 +80,65 @@ jobs:
         - name: typescript type check -backend
           working-directory: ./backend
           run: pnpm run type-check    
+
+
+    dependency-audit:
+      name: "dependency security audit"
+      runs-on: ubuntu-latest
+
+      steps:
+        - name: checkout code
+          uses: actions/checkout@v4
+          with: 
+            fetch-depth: 0
+
+        - name: setup pnpm
+          uses: pnpm/action-setup@v4
+          with:
+            version: 10
+
+        - name: setup noode
+          uses: actions/setup-node@v4
+          with: 
+            node-version: ${{env.NODE-VERSION}}
+           
+        - name: audit frontend dependicies
+          working-directory: ./frontend
+          run: pnpm audit --audit-level=high     
+           
+        - name: audit backend dependicies
+          working-directory: ./backend
+          run: pnpm audit --audit-level=high
+
+        - name: Run snyk security scan
+          uses: snyk/actions/node@master
+          continue-on-error: true
+          env: 
+            SNYK_TOKEN: ${{secrets.SNYK_TOKEN}}
+          with:
+             args: --severity-threshold=high --all-projects
+             
+        - name: upload snyk result on github security
+          uses: github/codeql-action/upload-sarif@v3
+          with:
+            sarif_file: snyk.sarif
+          continue-on-error: true
+
+    security-scan:
+      name: "security_scan"
+      runs-on: ubuntu-latest
+      steps:
+        - name: checkout code
+          uses: actions/checkout@v4
+          with: 
+            fetch-depth: 0
+
+        - name: Run trufflehog security scan
+          uses: trufflesecurity/trufflehog@main
+          with:
+            path: ./
+            base: ${{github.event.repository.default_branch}}
+            head: HEAD
+          continue-on-error: true
+
+          
